@@ -266,17 +266,16 @@ public class PartitionView extends JFrame {
     }
 
     /**
-     * 合并相邻空闲块（防止碎片）
+     * 合并相邻空闲块
      */
     private void mergeBlocks() {
         for (int i = 0; i < memoryBlocks.size() - 1; i++) {
             MemoryBlock current = memoryBlocks.get(i);
             MemoryBlock next = memoryBlocks.get(i + 1);
             // 相邻且都空闲时合并
-            if (current.free && next.free &&
-                    current.start + current.size == next.start) {
-                current.size += next.size;     // 合并大小
-                memoryBlocks.remove(i + 1);   // 移除后一个块
+            if (current.free && next.free && current.start + current.size == next.start) {
+                current.size += next.size;
+                memoryBlocks.remove(i + 1);
                 i--;  // 回退索引，继续检查合并后的块
             }
         }
@@ -298,7 +297,6 @@ public class PartitionView extends JFrame {
         repaint();  // 触发可视化面板重绘
     }
 
-    // ====================== 主方法 ======================
     public static void main(String[] args) {
         SwingUtilities.invokeLater(() -> {  // 确保GUI线程安全
             PartitionView frame = new PartitionView();
