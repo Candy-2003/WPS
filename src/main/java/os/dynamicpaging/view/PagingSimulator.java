@@ -1,7 +1,9 @@
 package os.dynamicpaging.view;
 
 import javax.swing.*;
+import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
+import javax.swing.table.TableCellRenderer;
 import java.awt.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
@@ -17,7 +19,7 @@ public class PagingSimulator extends JFrame {
     static class PageTableEntry {
         boolean present;
         int frame;
-        boolean modified;
+        boolean modified; // 永久记录是否被修改过
         int diskLocation;
 
         public PageTableEntry(boolean present, int frame, boolean modified, int diskLocation) {
@@ -31,7 +33,7 @@ public class PagingSimulator extends JFrame {
     static class MemoryBlock {
         Integer page;
         long loadTime;
-        boolean modified;
+        boolean modified; // 内存中的修改状态
 
         public MemoryBlock(Integer page, long loadTime) {
             this.page = page;
@@ -100,17 +102,29 @@ public class PagingSimulator extends JFrame {
 
         JPanel mainPanel = new JPanel(new GridLayout(1, 3));
 
-        // 页表
+        // 页表（带颜色渲染）
         pageTableModel = new DefaultTableModel(new Object[]{"页号", "存在", "内存块号", "修改", "磁盘位置"}, 0);
-        JTable pageTable = new JTable(pageTableModel);
+        JTable pageTable = new JTable(pageTableModel){
+            @Override
+            public Component prepareRenderer(TableCellRenderer renderer, int row, int column) {
+                Component c = super.prepareRenderer(renderer, row, column);
+                boolean isPresent = (Boolean) getModel().getValueAt(row, 1);
+                if (isPresent) {
+                    c.setBackground(new Color(200, 255, 200)); // 绿色背景
+                } else {
+                    c.setBackground(getBackground());
+                }
+                return c;
+            }
+        };
         mainPanel.add(new JScrollPane(pageTable));
 
-        // 内存状态
-        memoryModel = new DefaultTableModel(new Object[]{"块号", "页号", "加载时间", "修改"}, 0);
+        // 内存表（移除修改列）
+        memoryModel = new DefaultTableModel(new Object[]{"块号", "页号", "加载时间"}, 0);
         JTable memoryTable = new JTable(memoryModel);
         mainPanel.add(new JScrollPane(memoryTable));
 
-        // 历史记录（新增操作列）
+        // 历史记录表
         historyModel = new DefaultTableModel(new Object[]{"序号", "时间", "操作", "页号", "物理地址", "结果"}, 0);
         JTable historyTable = new JTable(historyModel);
         mainPanel.add(new JScrollPane(historyTable));
@@ -136,11 +150,8 @@ public class PagingSimulator extends JFrame {
             }
             allocatedBlocks = newCount;
             initSystem();
-
-            // 清空历史记录
             historyModel.setRowCount(0);
             historyCounter = 1;
-
             refreshAll();
             logArea.append("系统已重置：内存块数=" + allocatedBlocks + "\n");
         } catch (NumberFormatException ex) {
@@ -174,10 +185,10 @@ public class PagingSimulator extends JFrame {
                 }
             }
 
-            // 处理写操作（仅对save操作设置修改标志）
+            // 处理写操作（仅save操作修改标志）
             if ("save".equals(operation) && entry.present) {
-                entry.modified = true;
-                physicalMemory[entry.frame].modified = true;
+                entry.modified = true; // 永久记录修改
+                physicalMemory[entry.frame].modified = true; // 内存中的修改状态
             }
 
             addHistoryRecord(operation, page, physicalAddr, result);
@@ -202,16 +213,17 @@ public class PagingSimulator extends JFrame {
         MemoryBlock victimBlock = physicalMemory[victimFrame];
         int victimPage = victimBlock.page;
 
-        // 仅当页面被修改时才写回磁盘
+        // 仅处理内存中的修改状态
         if (victimBlock.modified) {
             logArea.append("  写回页" + victimPage + "到磁盘位置"
                     + pageTable[victimPage].diskLocation + "\n");
-            pageTable[victimPage].modified = false; // 写回后重置修改标志
+            // 注意：不修改页表的永久modified标志
         }
 
         replacePage(victimFrame, page);
         return "淘汰第" + victimPage + "页";
     }
+
     private int findFreeFrame() {
         for (int i = 0; i < allocatedBlocks; i++) {
             if (physicalMemory[i] == null) {
@@ -234,15 +246,11 @@ public class PagingSimulator extends JFrame {
     }
 
     private void loadPage(int page, int frame) {
-        // 写回旧页
         MemoryBlock old = physicalMemory[frame];
-        if (old != null && old.modified) {
-            logArea.append("  写回页" + old.page + "到磁盘位置"
-                    + pageTable[old.page].diskLocation + "\n");
-            pageTable[old.page].modified = false;
+        if (old != null) {
+            physicalMemory[frame] = null;
         }
 
-        // 加载新页
         physicalMemory[frame] = new MemoryBlock(page, System.currentTimeMillis());
         pageTable[page].present = true;
         pageTable[page].frame = frame;
@@ -267,10 +275,10 @@ public class PagingSimulator extends JFrame {
             PageTableEntry e = pageTable[i];
             pageTableModel.addRow(new Object[]{
                     i,
-                    e.present ? "true" : "false",
-                    e.present ? e.frame : "N/A",  // 新增内存块号显示
-                    e.modified ? "true" : "false",
-                    e.diskLocation
+                    e.present,
+                    e.present ? e.frame : "N/A",
+                    e.modified, // 永久修改标志
+                    String.format("%03d", e.diskLocation)
             });
         }
     }
@@ -282,21 +290,16 @@ public class PagingSimulator extends JFrame {
             memoryModel.addRow(new Object[]{
                     i,
                     (b != null) ? b.page : "空",
-                    (b != null) ? TIME_FORMAT.format(new Date(b.loadTime)) : "N/A",
-                    (b != null) ? b.modified : false
+                    (b != null) ? TIME_FORMAT.format(new Date(b.loadTime)) : "N/A"
             });
         }
     }
 
-
-    // ... [其他分页管理方法保持不变] ...
-
-    //============= 历史记录 =============//
     private void addHistoryRecord(String operation, int page, int addr, String result) {
         historyModel.addRow(new Object[]{
                 historyCounter++,
                 TIME_FORMAT.format(new Date()),
-                operation,  // 新增操作列
+                operation,
                 page,
                 (addr != -1) ? addr : "N/A",
                 result
