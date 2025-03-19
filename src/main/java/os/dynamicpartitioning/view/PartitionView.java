@@ -13,7 +13,7 @@ import java.util.List;
  */
 public class PartitionView extends JFrame {
 
-    // ====================== 核心数据结构 ======================
+    //核心数据结构
     /**
      * 内存块类（静态内部类）
      * start - 起始地址（单位KB）
@@ -32,20 +32,18 @@ public class PartitionView extends JFrame {
     }
     //DefaultTableModel的实现，其使用Vector的Vectors来存储单元格值对象。
 
-    // ====================== GUI组件 ======================
+    //GUI组件
     private DefaultTableModel tableModel;      // 表格数据模型,构造一个默认的 DefaultTableModel 是一个零列和零行的表
     private JTable partitionTable;            // 显示分区信息的表格
     private JComboBox<String> algoCombo;      // 算法选择下拉框
     private JTextField sizeField;             // 输入分配大小的文本框
     private List<MemoryBlock> memoryBlocks = new ArrayList<>(); // 内存块列表
 
-    // ====================== 初始化方法 ======================
-    /**
-     * 构造方法
-     */
+    //初始化
+
     public PartitionView() {
-        initComponents();  // 初始化GUI组件
-        initMemory();      // 初始化内存（默认1024KB）
+        initComponents();
+        initMemory();
     }
 
     /**
@@ -58,12 +56,12 @@ public class PartitionView extends JFrame {
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         setLayout(new BorderLayout());
 
-        // ---------- 控制面板（北区） ----------
+        // 控制面板（北区）
         JPanel controlPanel = new JPanel();
         sizeField = new JTextField(10);       // 分配大小输入框
         JButton allocButton = new JButton("分配内存");
         JButton freeButton = new JButton("释放内存");
-        algoCombo = new JComboBox<>(new String[]{"最先适应", "最佳适应", "最坏适应"}); // 算法选择器
+        algoCombo = new JComboBox<>(new String[]{"最先适应", "最佳适应", "最坏适应"});
 
         controlPanel.add(new JLabel("选择算法:"));
         controlPanel.add(algoCombo);
@@ -73,24 +71,24 @@ public class PartitionView extends JFrame {
         controlPanel.add(freeButton);
         add(controlPanel, BorderLayout.NORTH);
 
-        // ---------- 分区表格（中区） ----------
+        // 分区表格（中区）
         tableModel = new DefaultTableModel(new Object[]{"起始地址", "大小", "状态"}, 0);
         partitionTable = new JTable(tableModel);
         add(new JScrollPane(partitionTable), BorderLayout.CENTER);
 
-        // ---------- 内存可视化面板（南区） ----------
+        //内存可视化面板（南区）
         JPanel visualPanel = new JPanel() {
             @Override
             protected void paintComponent(Graphics g) {
                 super.paintComponent(g);
                 int y = 10;  // 起始绘制纵坐标
 //                int y = 10;  // 起始绘制纵坐标
-                Font labelFont = new Font("Times New Roman", Font.BOLD, 12); // 创建新字体
+                Font labelFont = new Font("Times New Roman", Font.BOLD, 12);
                 g.setFont(labelFont);
                 // 遍历内存块并绘制矩形
                 for (MemoryBlock block : memoryBlocks) {
-                    int height = block.size * 1024 / 1024;  // 根据比例计算高度
-                    g.setColor(block.free ? Color.GREEN : Color.RED); // 空闲绿色，已分配红色
+                    int height = block.size * 1024 / 1024;
+                    g.setColor(block.free ? Color.GREEN : Color.RED);
                     g.fillRect(50, y, 200, height);       // 绘制矩形块
                     g.setColor(Color.BLACK);
                     g.drawString(block.start + "K-" + (block.start + block.size) + "K", 260, y+5); // 标注地址范围
@@ -99,7 +97,7 @@ public class PartitionView extends JFrame {
                     y += height + 10;  // 更新纵坐标
                 }
             }
-            // ===== 3. 动态计算面板大小 =====
+            // 动态计算面板大小
             @Override
             public Dimension getPreferredSize() {
                 int totalHeight = 10; // 初始偏移
@@ -107,10 +105,10 @@ public class PartitionView extends JFrame {
                     int blockHeight = block.size * 1024 / 1024;
                     totalHeight += blockHeight + 10; // 块高 + 间隔
                 }
-                return new Dimension(400, Math.max(totalHeight, 500)); // 最小高度500
+                return new Dimension(400, Math.max(totalHeight, 500));
             }
         };
-        // ===== 4. 添加滚动条容器 =====
+        // 添加滚动条容器
         JScrollPane visualScrollPane = new JScrollPane(visualPanel);
         visualScrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         visualScrollPane.setHorizontalScrollBarPolicy(JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
@@ -121,12 +119,12 @@ public class PartitionView extends JFrame {
 //        visualPanel.setPreferredSize(new Dimension(400, 500));
 //        add(visualPanel, BorderLayout.EAST);
 
-        // ---------- 事件监听 ----------
+        // 事件监听
         allocButton.addActionListener(e -> allocateMemory()); // 分配按钮点击事件
         freeButton.addActionListener(e -> freeMemory());      // 释放按钮点击事件
     }
 
-    // ====================== 内存管理核心逻辑 ======================
+    // 内存管理核心逻辑
     /**
      * 初始化内存（默认1024KB空闲块）
      */
@@ -174,8 +172,8 @@ public class PartitionView extends JFrame {
     private boolean firstFit(int size) {
         for (int i = 0; i < memoryBlocks.size(); i++) {
             MemoryBlock block = memoryBlocks.get(i);
-            if (block.free && block.size >= size) {  // 找到第一个满足条件的块
-                splitBlock(i, size);  // 分割内存块
+            if (block.free && block.size >= size) {
+                splitBlock(i, size);
                 return true;
             }
         }
@@ -183,7 +181,7 @@ public class PartitionView extends JFrame {
     }
 
     /**
-     * 最佳适应算法（找能满足条件的最小块）
+     * 最佳适应算法
      */
     private boolean bestFit(int size) {
         int bestIndex = -1;
@@ -203,7 +201,7 @@ public class PartitionView extends JFrame {
     }
 
     /**
-     * 最坏适应算法（找能满足条件的最大块）
+     * 最坏适应算法
      */
     private boolean worstFit(int size) {
         int worstIndex = -1;
@@ -230,17 +228,17 @@ public class PartitionView extends JFrame {
     private void splitBlock(int index, int size) {
         MemoryBlock original = memoryBlocks.get(index);
         if (original.size == size) {  // 块大小刚好等于需求
-            original.free = false;    // 直接标记为已分配
+            original.free = false;
         } else {  // 需要分割成两个块
-            MemoryBlock allocated = new MemoryBlock(original.start, size, false); // 已分配块
-            MemoryBlock remaining = new MemoryBlock(  // 剩余空闲块
+            MemoryBlock allocated = new MemoryBlock(original.start, size, false);
+            MemoryBlock remaining = new MemoryBlock(
                     original.start + size,
                     original.size - size,
                     true
             );
-            memoryBlocks.remove(index);        // 移除原块
-            memoryBlocks.add(index, remaining); // 先添加剩余块（保证顺序）
-            memoryBlocks.add(index, allocated); // 再添加已分配块
+            memoryBlocks.remove(index);
+            memoryBlocks.add(index, remaining);
+            memoryBlocks.add(index, allocated);
         }
     }
 
@@ -249,13 +247,15 @@ public class PartitionView extends JFrame {
      */
     private void freeMemory() {
         int selectedRow = partitionTable.getSelectedRow();
-        if (selectedRow == -1) {  // 未选择行
+        // 未选择行
+        if (selectedRow == -1) {
             JOptionPane.showMessageDialog(this, "请先选择要释放的分区!");
             return;
         }
 
         MemoryBlock block = memoryBlocks.get(selectedRow);
-        if (block.free) {  // 已经是空闲块
+        // 已经是空闲块
+        if (block.free) {
             JOptionPane.showMessageDialog(this, "该分区已经是空闲状态!");
             return;
         }
@@ -290,7 +290,7 @@ public class PartitionView extends JFrame {
             tableModel.addRow(new Object[]{
                     block.start + "K",
                     block.size + "K",
-                    block.free ? "空闲" : "已分配"  // 状态显示
+                    block.free ? "空闲" : "已分配"
             });
         }
 
